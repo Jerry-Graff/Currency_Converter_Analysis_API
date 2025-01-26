@@ -6,14 +6,15 @@ import os
 
 app = FastAPI(
     title="USD to GBP Concersion Helper",
-    description="Use historical exhcnage rates to help decide whent to convert your $"
+    description="Use historical exhcnage rates to help decide whent to convert your $",
     version="1.0.0"
 )
 
 BASE_URL = os.getenv("BASE_URL")
 
+
 def fetch_timeseries_rates(start_date: str, end_date: str, base: str = "USD", symbols: str = "GBP") -> Dict[str, Any]:
-    
+
     url = f"{BASE_URL}/timeseries"
     params = {
         "start_date": start_date,
