@@ -13,12 +13,15 @@ A minimal FastAPI project demonstrating API calls to convert USD to other curren
    ```bash
    git clone https://github.com/your-username/currency-api-demo.git
    cd currency-api-demo
-Install dependencies:
 
-2. **Set up requirements**:
-pip install -r requirements.txt
-Create a .env file:
-EXCHANGE_RATE_API_KEY=your-api-key-here
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
 
-3. **Run the server**:
+3. **Create a .env file**:
+   ```bash
+   EXCHANGE_RATE_API_KEY=your-api-key-here
+   BASE_URL=your-base-url
+
+4. **Run the server**:
 uvicorn main:app --reload
