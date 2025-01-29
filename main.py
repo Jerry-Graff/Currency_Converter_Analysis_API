@@ -1,53 +1,59 @@
+import os
+import requests
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
-from services.exchange_service import fetch_90d_usd_gbp, fetch_latest_usd_gbp
-from services.analysis_service import extract_usd_gbp_rates, analyze_90d, is_good_day
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(
-    title="USD to GBP Currency App",
-    description="Fetch the past 90 days of USD->GBP",
+    title="Currency Converter API",
+    description="Convert USD to other currencies using ExchangeRateAPI",
     version="1.0.0"
 )
 
+API_KEY = os.getenv("EXCHANGE_RATE_API_KEY")
+BASE_URL = os.getenv("BASE_URL")
 
-@app.get("/analysis", summary="Analyze 90-day historical USD->GBP.")
-def get_analysis(threshold: float = 0.0):
+
+class ConversionResponse(BaseModel):
+    base: str
+    target: str
+    ammount: float
+    converted_ammount: float
+
+
+@app.get("/convert", response_model=ConversionResponse)
+def convert_currency(target: str = "GBP", ammount: float = 1.0):
     """
-    1. Fetch 90 days of historical USD->GBP rates.
-    2. Fetch the current (today) USD->GBP rate.
-    3. Analyze them to see if it's a good day to convert.
-    4. Return relevant data points.
-
-    :param threshold: The threshold above the average for deciding "good day".
+    Convert USD to a target currency.
+    - target: Currency code (e.g., GBP, EUR, JPY)
+    - amount: USD amount to convert
     """
     try:
-        # 1. Fetch historical timeseries data (90 days).
-        timeseries_data = fetch_90d_usd_gbp()
-        historical_rates = extract_usd_gbp_rates(timeseries_data)
+        # Fetch exchange rates
+        response = requests.get(f"{BASE_URL}/{API_KEY}/latest/USD")
+        response.raise_for_status()  # Raise error for bad status codes
+        data = response.json()
 
-        # 2. Fetch today's rate.
-        current = fetch_latest_usd_gbp()
+        # Check target currency exsists
+        if target not in data["conversion_rates"]:
+            raise HTTPException(
+                status_code=400, detail="Invalid target currency")
 
-        # 3. Analyze.
-        stats = analyze_90d(current, historical_rates)
-        recommendation = is_good_day(
-            current_rate=stats["current_rate"],
-            avg_rate=stats["average_90d"],
-            threshold=threshold
-        )
+        rate = data["conversion_rates"][target]
+        converted_ammount = ammount * rate
 
-        # 4. Return the response as JSON.
         return {
-            "current_rate": stats["current_rate"],
-            "average_rate_90d": stats["average_90d"],
-            "min_rate_90d": stats["min_90d"],
-            "max_rate_90d": stats["max_90d"],
-            "difference_from_average": stats["difference_from_average"],
-            "recommendation": "Yes" if recommendation else "No",
-            "threshold_used": threshold
+            "base": "USD",
+            "target": target,
+            "ammount": ammount,
+            "converted_ammount": round(converted_ammount, 2)
         }
-    except HTTPException as e:
-        # FastAPI will auto-handle HTTPException with correct status codes.
-        raise e
-    except Exception as e:
-        # Catch other unexpected errors
-        raise HTTPException(status_code=500, detail=str(e))
+
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=500, detail=f"API request failed: {str(e)}")
+    except KeyError:
+        raise HTTPException(
+            status_code=500, detail="Invalid API response format")
